@@ -27,12 +27,12 @@
 
   <distributionManagement>
     <repository>
-      <id>ossrh-staging</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+      <id>bcs-main-releases</id>
+      <url>https://artifactory.gitlab.bcs.ru/artifactory/bcs-main-releases</url>
     </repository>
     <snapshotRepository>
-      <id>ossrh-snapshots</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+      <id>bcs-main-snapshots</id>
+      <url>https://artifactory.gitlab.bcs.ru/artifactory/bcs-main-snapshots</url>
     </snapshotRepository>
   </distributionManagement>
 
@@ -96,14 +96,14 @@
   </prerequisites>
 
   <scm>
-    <connection>scm:git:https://github.com/mojohaus/versions-maven-plugin.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/mojohaus/versions-maven-plugin.git</developerConnection>
-    <url>https://github.com/mojohaus/versions-maven-plugin/tree/${project.scm.tag}</url>
-    <tag>master</tag>
+    <connection>scm:git:https://github.com/dkrasilov/versions-maven-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/dkrasilov/versions-maven-plugin.git</developerConnection>
+    <url>https://github.com/dkrasilov/versions-maven-plugin/tree/${project.scm.tag}</url>
+    <tag>sfera</tag>
   </scm>
   <issueManagement>
     <system>github</system>
-    <url>https://github.com/mojohaus/versions-maven-plugin/issues/</url>
+    <url>https://github.com/dkrasilov/versions-maven-plugin/issues/</url>
   </issueManagement>
 
   <properties>
