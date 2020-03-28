@@ -25,6 +25,7 @@ import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Dependency;
+import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -36,12 +37,7 @@ import org.codehaus.mojo.versions.rewriting.ModifiedPomXMLEventReader;
 import org.codehaus.mojo.versions.utils.DependencyComparator;
 import org.codehaus.plexus.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -59,6 +55,26 @@ public class DisplayDependencyUpdatesMojo
 {
 
     // ------------------------------ FIELDS ------------------------------
+
+    /**
+     * A comma separated list of artifact patterns to include. Follows the pattern
+     * "groupId:artifactId:type:classifier:version". Designed to allow specifing the set of includes from the command
+     * line. When specifying includes from the pom, use the {@link #includes} configuration instead. If this property is
+     * specified then the {@link # include} configuration is ignored.
+     *
+     * @since 1.0-beta-1
+     */
+    @Parameter( property = "includes" )
+    private String includesList = null;
+
+    /**
+     * A list of artifact patterns to include. Follows the pattern "groupId:artifactId:type:classifier:version". This
+     * configuration setting is ignored if {@link #includesList} is defined.
+     *
+     * @since 1.0-beta-1
+     */
+    @Parameter
+    private String[] includes = null;
 
     /**
      * The width to pad info messages.
@@ -147,6 +163,14 @@ public class DisplayDependencyUpdatesMojo
      */
     @Parameter( property = "verbose", defaultValue = "false" )
     private boolean verbose;
+
+    /**
+     * Whether to show additional information such as dependencies that do not need updating. Defaults to false.
+     *
+     * @since SFERA.1
+     */
+    @Parameter( property = "showUpdatesOnErrorLevel", defaultValue = "true" )
+    private boolean showUpdatesOnErrorLevel;
 
     // --------------------- GETTER / SETTER METHODS ---------------------
 
@@ -280,10 +304,10 @@ public class DisplayDependencyUpdatesMojo
                     if ( getProject().hasParent() )
                     {
                         getLog().debug( "Reading parent dependencyManagement information" );
-                        if ( getProject().getParent().getDependencyManagement() != null )
+                        final DependencyManagement dependencyManagement1 = getProject().getParent().getDependencyManagement();
+                        if ( dependencyManagement1 != null )
                         {
-                            List<Dependency> parentDeps =
-                                getProject().getParent().getDependencyManagement().getDependencies();
+                            List<Dependency> parentDeps = dependencyManagement1.getDependencies();
                             for ( Dependency parentDep : parentDeps )
                             {
                                 // only groupId && artifactId needed cause version is null
@@ -333,6 +357,10 @@ public class DisplayDependencyUpdatesMojo
             pluginDependenciesInPluginManagement =
                 extractPluginDependenciesFromPluginsInPluginManagement( getProject().getBuild() );
         }
+        dependencyManagement = filterDependencies(dependencyManagement);
+        dependencies = filterDependencies(dependencies);
+        pluginDependencies = filterDependencies(pluginDependencies);
+        pluginDependenciesInPluginManagement = filterDependencies(pluginDependenciesInPluginManagement);
 
         try
         {
@@ -355,14 +383,46 @@ public class DisplayDependencyUpdatesMojo
                 logUpdates( getHelper().lookupDependenciesUpdates( pluginDependencies, false ), "Plugin Dependencies" );
             }
         }
-        catch ( InvalidVersionSpecificationException e )
+        catch ( InvalidVersionSpecificationException | ArtifactMetadataRetrievalException e )
         {
             throw new MojoExecutionException( e.getMessage(), e );
         }
-        catch ( ArtifactMetadataRetrievalException e )
-        {
-            throw new MojoExecutionException( e.getMessage(), e );
+    }
+
+    private List<String> includePatterns = null;
+
+    private Set<Dependency> filterDependencies(Set<Dependency> dependencies) {
+        if (includePatterns == null) {
+            final List<String> includePatterns = new ArrayList<>();
+            if ( this.includesList != null ) {
+                includePatterns.addAll(Arrays.asList(includesList.split(",")));
+            } else if ( includes != null ) {
+                includePatterns.addAll( Arrays.asList( includes ) );
+            }
+            this.includePatterns = includePatterns;
         }
+
+        getLog().info(String.format("Include patterns: %s", includePatterns));
+        final Set<Dependency> filteredDependencies = new TreeSet<>( new DependencyComparator() );
+
+        for (Dependency dependency : dependencies) {
+            final String dependencyString = dependency.getGroupId() + dependency.getArtifactId();
+
+            final boolean matchesPattern = matchesOneOfPatters(includePatterns, dependencyString);
+            if (matchesPattern) {
+                filteredDependencies.add(dependency);
+            };
+        }
+        return filteredDependencies;
+    }
+
+    private static boolean matchesOneOfPatters(List<String> patterns, String s){
+        for (String pattern : patterns) {
+            if (s.matches(pattern)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private UpdateScope calculateUpdateScope()
@@ -468,13 +528,13 @@ public class DisplayDependencyUpdatesMojo
         }
         else
         {
-            logLine( false, "The following dependencies in " + section + " have newer versions:" );
+            logLine(showUpdatesOnErrorLevel, "The following dependencies in " + section + " have newer versions:" );
             i = withUpdates.iterator();
             while ( i.hasNext() )
             {
-                logLine( false, (String) i.next() );
+                logLine(showUpdatesOnErrorLevel, (String) i.next() );
             }
-            logLine( false, "" );
+            logLine(showUpdatesOnErrorLevel, "" );
         }
     }
 
