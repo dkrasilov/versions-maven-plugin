@@ -402,7 +402,7 @@ public class DisplayDependencyUpdatesMojo
             this.includePatterns = includePatterns;
         }
 
-        getLog().info(String.format("Include patterns: %s", includePatterns));
+        getLog().debug(String.format("Include patterns: %s", includePatterns));
         final Set<Dependency> filteredDependencies = new TreeSet<>( new DependencyComparator() );
 
         for (Dependency dependency : dependencies) {
